@@ -1,0 +1,15 @@
+[project]
+name = "comfyui-image-profile"
+version = "0.1.0"
+description = "ComfyUI node for managing latent resolution and steps profiles"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+  { name = "geraldlonlas" }
+]
+
+[tool.comfy]
+PublisherId = "geraldlonlas"
+DisplayName = "ComfyUI-Image-profile"
+Icon = ""

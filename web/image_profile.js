@@ -130,12 +130,18 @@ function ensureStyles() {
       display: flex;
       flex-direction: column;
       gap: 7px;
+      transition: border-color 120ms ease, background 120ms ease, box-shadow 120ms ease;
     }
 
     .cip-profile.is-selected {
-      border-color: rgba(59, 163, 255, 0.85);
-      background: linear-gradient(160deg, rgba(59, 163, 255, 0.2), rgba(105, 209, 255, 0.12));
-      box-shadow: inset 0 0 0 1px rgba(59, 163, 255, 0.25);
+      border-color: rgba(59, 163, 255, 0.98);
+      background: linear-gradient(160deg, rgba(59, 163, 255, 0.28), rgba(105, 209, 255, 0.18));
+      box-shadow: inset 0 0 0 1px rgba(59, 163, 255, 0.5), 0 0 0 1px rgba(59, 163, 255, 0.32);
+    }
+
+    .cip-profile.is-drop-target {
+      border-color: rgba(105, 209, 255, 0.95);
+      box-shadow: inset 0 0 0 1px rgba(105, 209, 255, 0.45);
     }
 
     .cip-profile-top {
@@ -148,6 +154,18 @@ function ensureStyles() {
     .cip-profile-name {
       font-size: 12px;
       font-weight: 700;
+    }
+
+    .cip-selected-pill {
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid rgba(105, 209, 255, 0.9);
+      border-radius: 999px;
+      padding: 2px 7px;
+      font-size: 10px;
+      letter-spacing: 0.02em;
+      color: #bde9ff;
+      background: rgba(59, 163, 255, 0.25);
     }
 
     .cip-profile-meta {
@@ -508,6 +526,7 @@ function renderProfiles(node) {
     const isSelected = profile.id === state.selectedId;
     const card = document.createElement("div");
     card.className = `cip-profile${isSelected ? " is-selected" : ""}`;
+    card.draggable = true;
 
     const top = document.createElement("div");
     top.className = "cip-profile-top";
@@ -520,7 +539,14 @@ function renderProfiles(node) {
     meta.className = "cip-profile-meta";
     meta.textContent = `${profile.width}x${profile.height} • ${profile.steps} steps`;
 
-    top.append(name, meta);
+    if (isSelected) {
+      const selectedPill = document.createElement("div");
+      selectedPill.className = "cip-selected-pill";
+      selectedPill.textContent = "Selected";
+      top.append(name, selectedPill);
+    } else {
+      top.append(name);
+    }
 
     const actions = document.createElement("div");
     actions.className = "cip-actions";
@@ -534,6 +560,11 @@ function renderProfiles(node) {
     editButton.className = "cip-btn";
     editButton.type = "button";
     editButton.textContent = "Edit";
+
+    const duplicateButton = document.createElement("button");
+    duplicateButton.className = "cip-btn";
+    duplicateButton.type = "button";
+    duplicateButton.textContent = "Duplicate";
 
     const deleteButton = document.createElement("button");
     deleteButton.className = "cip-btn";
@@ -552,8 +583,25 @@ function renderProfiles(node) {
       openForm(node, "edit", profile.id);
     });
 
+    duplicateButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const duplicate = {
+        ...profile,
+        id: createId(),
+        name: `${profile.name} Copy`,
+      };
+      state.profiles = [...state.profiles, duplicate];
+      state.selectedId = duplicate.id;
+      persistState(node);
+      renderProfiles(node);
+    });
+
     deleteButton.addEventListener("click", (event) => {
       event.stopPropagation();
+      if (state.profiles.length <= 1) {
+        app.ui.dialog.show("At least one profile must exist.");
+        return;
+      }
       state.profiles = state.profiles.filter((candidate) => candidate.id !== profile.id);
       if (state.selectedId === profile.id) {
         state.selectedId = state.profiles[0]?.id ?? "";
@@ -562,7 +610,7 @@ function renderProfiles(node) {
       renderProfiles(node);
     });
 
-    actions.append(selectButton, editButton, deleteButton);
+    actions.append(selectButton, editButton, duplicateButton, deleteButton);
 
     card.addEventListener("click", () => {
       state.selectedId = profile.id;
@@ -570,7 +618,49 @@ function renderProfiles(node) {
       renderProfiles(node);
     });
 
-    card.append(top, actions);
+    card.addEventListener("dragstart", (event) => {
+      node.__draggingProfileId = profile.id;
+      event.dataTransfer.effectAllowed = "move";
+    });
+
+    card.addEventListener("dragend", () => {
+      node.__draggingProfileId = null;
+      card.classList.remove("is-drop-target");
+    });
+
+    card.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      card.classList.add("is-drop-target");
+    });
+
+    card.addEventListener("dragleave", () => {
+      card.classList.remove("is-drop-target");
+    });
+
+    card.addEventListener("drop", (event) => {
+      event.preventDefault();
+      card.classList.remove("is-drop-target");
+      const draggingId = node.__draggingProfileId;
+      if (!draggingId || draggingId === profile.id) {
+        return;
+      }
+
+      const sourceIndex = state.profiles.findIndex((entry) => entry.id === draggingId);
+      const targetIndex = state.profiles.findIndex((entry) => entry.id === profile.id);
+      if (sourceIndex === -1 || targetIndex === -1) {
+        return;
+      }
+
+      const reordered = [...state.profiles];
+      const [moved] = reordered.splice(sourceIndex, 1);
+      reordered.splice(targetIndex, 0, moved);
+      state.profiles = reordered;
+
+      persistState(node);
+      renderProfiles(node);
+    });
+
+    card.append(top, meta, actions);
     list.appendChild(card);
   }
 

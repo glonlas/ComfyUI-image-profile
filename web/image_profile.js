@@ -86,6 +86,7 @@ function ensureStyles() {
       box-sizing: border-box;
       width: 100%;
       min-height: 320px;
+      overflow: hidden;
       font-family: "Trebuchet MS", "Segoe UI", sans-serif;
     }
 
@@ -124,6 +125,11 @@ function ensureStyles() {
       flex-direction: column;
       gap: 8px;
       min-height: 150px;
+      max-height: 260px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding-right: 2px;
+      box-sizing: border-box;
     }
 
     .cip-profile {
@@ -135,6 +141,9 @@ function ensureStyles() {
       display: flex;
       flex-direction: column;
       gap: 7px;
+      box-sizing: border-box;
+      width: 100%;
+      overflow: hidden;
       transition: border-color 120ms ease, background 120ms ease, box-shadow 120ms ease;
     }
 
@@ -154,11 +163,16 @@ function ensureStyles() {
       justify-content: space-between;
       gap: 8px;
       align-items: baseline;
+      min-width: 0;
     }
 
     .cip-profile-name {
       font-size: 12px;
       font-weight: 700;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .cip-selected-pill {
@@ -176,11 +190,23 @@ function ensureStyles() {
     .cip-profile-meta {
       font-size: 11px;
       color: var(--cip-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .cip-profile-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      min-width: 0;
     }
 
     .cip-actions {
       display: flex;
       gap: 6px;
+      margin-left: auto;
     }
 
     .cip-btn {
@@ -196,6 +222,32 @@ function ensureStyles() {
 
     .cip-btn:hover {
       filter: brightness(1.12);
+    }
+
+    .cip-btn-icon {
+      width: 24px;
+      height: 24px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+
+    .cip-icon {
+      width: 13px;
+      height: 13px;
+      display: inline-flex;
+      color: var(--cip-text);
+    }
+
+    .cip-icon svg {
+      width: 13px;
+      height: 13px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
     }
 
     .cip-empty {
@@ -304,6 +356,26 @@ function createId() {
     return globalThis.crypto.randomUUID();
   }
   return `profile-${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
+}
+
+function createIconButton(kind, label) {
+  const button = document.createElement("button");
+  button.className = "cip-btn cip-btn-icon";
+  button.type = "button";
+  button.title = label;
+  button.setAttribute("aria-label", label);
+
+  const icon = document.createElement("span");
+  icon.className = "cip-icon";
+
+  if (kind === "edit") {
+    icon.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path></svg>`;
+  } else {
+    icon.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>`;
+  }
+
+  button.appendChild(icon);
+  return button;
 }
 
 function parseResolution(text) {
@@ -633,50 +705,12 @@ function renderProfiles(node) {
     const actions = document.createElement("div");
     actions.className = "cip-actions";
 
-    const selectButton = document.createElement("button");
-    selectButton.className = "cip-btn";
-    selectButton.type = "button";
-    selectButton.textContent = "Select";
-
-    const editButton = document.createElement("button");
-    editButton.className = "cip-btn";
-    editButton.type = "button";
-    editButton.textContent = "Edit";
-
-    const duplicateButton = document.createElement("button");
-    duplicateButton.className = "cip-btn";
-    duplicateButton.type = "button";
-    duplicateButton.textContent = "Duplicate";
-
-    const deleteButton = document.createElement("button");
-    deleteButton.className = "cip-btn";
-    deleteButton.type = "button";
-    deleteButton.textContent = "Delete";
-
-    selectButton.addEventListener("click", (event) => {
-      event.stopPropagation();
-      state.selectedId = profile.id;
-      persistState(node);
-      renderProfiles(node);
-    });
+    const editButton = createIconButton("edit", "Edit profile");
+    const deleteButton = createIconButton("delete", "Delete profile");
 
     editButton.addEventListener("click", (event) => {
       event.stopPropagation();
       openForm(node, "edit", profile.id);
-    });
-
-    duplicateButton.addEventListener("click", (event) => {
-      event.stopPropagation();
-      const duplicateName = makeUniqueName(profile.name, state.profiles);
-      const duplicate = {
-        ...profile,
-        id: createId(),
-        name: duplicateName,
-      };
-      state.profiles = [...state.profiles, duplicate];
-      state.selectedId = duplicate.id;
-      persistState(node);
-      renderProfiles(node);
     });
 
     deleteButton.addEventListener("click", (event) => {
@@ -693,7 +727,11 @@ function renderProfiles(node) {
       renderProfiles(node);
     });
 
-    actions.append(selectButton, editButton, duplicateButton, deleteButton);
+    actions.append(editButton, deleteButton);
+
+    const footer = document.createElement("div");
+    footer.className = "cip-profile-footer";
+    footer.append(meta, actions);
 
     card.addEventListener("click", () => {
       state.selectedId = profile.id;
@@ -743,7 +781,7 @@ function renderProfiles(node) {
       renderProfiles(node);
     });
 
-    card.append(top, meta, actions);
+    card.append(top, footer);
     list.appendChild(card);
   }
 

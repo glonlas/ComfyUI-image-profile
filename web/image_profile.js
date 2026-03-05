@@ -1,7 +1,7 @@
 import { app } from "../../scripts/app.js";
 
 const EXTENSION_NAME = "ComfyUI.ImageProfile.Manager";
-const TARGET_NODE_NAMES = new Set(["ComfyUIImageProfile", "ComfyUI-Image-profile"]);
+const TARGET_NODE_NAMES = new Set(["ComfyUIImageProfile", "ComfyUI-Image-profile", "Image Profile"]);
 const STATE_WIDGET_NAMES = [
   "profiles_json",
   "selected_profile_id",
@@ -16,6 +16,8 @@ const DIM_MIN = 8;
 const DIM_MAX = 16384;
 const STEPS_MIN = 1;
 const STEPS_MAX = 150;
+const DEFAULT_NODE_MIN_WIDTH = 460;
+const DEFAULT_NODE_MIN_HEIGHT = 520;
 
 const RESOLUTION_PRESETS = [
   "1024x1024 ( 1:1 )",
@@ -338,15 +340,26 @@ function hideStateWidgets(node) {
   }
 }
 
-function fitNode(node) {
+function fitNode(node, { enforceDefaultMinimum = false } = {}) {
   const computed = node.computeSize?.();
   if (!computed || computed.length < 2) {
     return;
   }
 
-  const nextWidth = Math.max(computed[0], 360);
-  const nextHeight = Math.max(computed[1], 360);
-  node.setSize?.([nextWidth, nextHeight]);
+  const currentWidth = Number(node.size?.[0]) || 0;
+  const currentHeight = Number(node.size?.[1]) || 0;
+  const minWidth = enforceDefaultMinimum ? DEFAULT_NODE_MIN_WIDTH : 0;
+  const minHeight = enforceDefaultMinimum ? DEFAULT_NODE_MIN_HEIGHT : 0;
+
+  const targetWidth = Math.max(computed[0], minWidth);
+  const targetHeight = Math.max(computed[1], minHeight);
+  const nextWidth = Math.max(targetWidth, currentWidth);
+  const nextHeight = Math.max(targetHeight, currentHeight);
+
+  if (nextWidth !== currentWidth || nextHeight !== currentHeight) {
+    node.setSize?.([nextWidth, nextHeight]);
+  }
+
   node.setDirtyCanvas?.(true, true);
   node.graph?.setDirtyCanvas?.(true, true);
 }
@@ -1013,11 +1026,11 @@ function mountManager(node) {
   renderProfiles(node);
 
   node.__imageProfileManagerMounted = true;
-  fitNode(node);
+  fitNode(node, { enforceDefaultMinimum: true });
 
-  setTimeout(() => fitNode(node), 0);
-  setTimeout(() => fitNode(node), 120);
-  setTimeout(() => fitNode(node), 260);
+  setTimeout(() => fitNode(node, { enforceDefaultMinimum: true }), 0);
+  setTimeout(() => fitNode(node, { enforceDefaultMinimum: true }), 120);
+  setTimeout(() => fitNode(node, { enforceDefaultMinimum: true }), 260);
 }
 
 app.registerExtension({

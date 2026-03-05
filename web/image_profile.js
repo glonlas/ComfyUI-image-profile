@@ -11,6 +11,11 @@ const STATE_WIDGET_NAMES = [
 ];
 const STYLE_TAG_ID = "comfyui-image-profile-style";
 const CUSTOM_RESOLUTION_VALUE = "__custom__";
+const DIM_MULTIPLE = 8;
+const DIM_MIN = 8;
+const DIM_MAX = 16384;
+const STEPS_MIN = 1;
+const STEPS_MAX = 150;
 
 const RESOLUTION_PRESETS = [
   "1024x1024 ( 1:1 )",
@@ -337,6 +342,75 @@ function toProfile(candidate) {
   };
 }
 
+function clamp(value, minimum, maximum) {
+  return Math.max(minimum, Math.min(maximum, value));
+}
+
+function sanitizeDimension(value) {
+  let integer = Number.parseInt(value, 10);
+  if (Number.isNaN(integer)) {
+    integer = DIM_MIN;
+  }
+  integer = clamp(integer, DIM_MIN, DIM_MAX);
+
+  const lower = Math.max(DIM_MIN, Math.floor(integer / DIM_MULTIPLE) * DIM_MULTIPLE);
+  const upper = Math.min(DIM_MAX, lower + DIM_MULTIPLE);
+  const nextValue = integer - lower >= upper - integer ? upper : lower;
+
+  return {
+    value: nextValue,
+    corrected: nextValue !== Number.parseInt(value, 10),
+  };
+}
+
+function sanitizeSteps(value) {
+  let integer = Number.parseInt(value, 10);
+  if (Number.isNaN(integer)) {
+    integer = 8;
+  }
+  const nextValue = clamp(integer, STEPS_MIN, STEPS_MAX);
+
+  return {
+    value: nextValue,
+    corrected: nextValue !== Number.parseInt(value, 10),
+  };
+}
+
+function notify(message, severity = "info") {
+  if (typeof app.extensionManager?.toast?.add === "function") {
+    app.extensionManager.toast.add({
+      severity,
+      summary: "Image Profile",
+      detail: message,
+      life: 3500,
+    });
+    return;
+  }
+  app.ui.dialog.show(message);
+}
+
+function makeUniqueName(baseName, profiles, excludeId = null) {
+  const desired = String(baseName ?? "").trim() || "Profile";
+  const taken = new Set(
+    profiles
+      .filter((profile) => profile.id !== excludeId)
+      .map((profile) => profile.name.trim().toLowerCase()),
+  );
+
+  if (!taken.has(desired.toLowerCase())) {
+    return desired;
+  }
+
+  let index = 2;
+  while (true) {
+    const candidate = `${desired} (${index})`;
+    if (!taken.has(candidate.toLowerCase())) {
+      return candidate;
+    }
+    index += 1;
+  }
+}
+
 function loadProfilesFromWidgets(node) {
   const profilesWidget = getWidget(node, "profiles_json");
   const raw = String(profilesWidget?.value ?? "[]").trim();
@@ -380,8 +454,15 @@ function chooseActiveProfile(state) {
   return state.profiles.find((profile) => profile.id === state.selectedId) ?? state.profiles[0] ?? null;
 }
 
-function profileToResolution(profile) {
-  return `${profile.width}x${profile.height}`;
+function normalizeSelection(state) {
+  if (state.profiles.length === 0) {
+    state.selectedId = "";
+    return;
+  }
+
+  if (!state.profiles.some((profile) => profile.id === state.selectedId)) {
+    state.selectedId = state.profiles[0].id;
+  }
 }
 
 function persistState(node) {
@@ -389,6 +470,7 @@ function persistState(node) {
   if (!state) {
     return;
   }
+  normalizeSelection(state);
 
   setWidgetValue(node, "profiles_json", JSON.stringify(state.profiles));
 
@@ -585,10 +667,11 @@ function renderProfiles(node) {
 
     duplicateButton.addEventListener("click", (event) => {
       event.stopPropagation();
+      const duplicateName = makeUniqueName(profile.name, state.profiles);
       const duplicate = {
         ...profile,
         id: createId(),
-        name: `${profile.name} Copy`,
+        name: duplicateName,
       };
       state.profiles = [...state.profiles, duplicate];
       state.selectedId = duplicate.id;
@@ -763,12 +846,27 @@ function saveForm(node) {
     return;
   }
 
-  if (Number.isNaN(steps)) {
-    app.ui.dialog.show("Steps must be an integer.");
+  if (!/^-?\d+$/.test(String(formState.stepsInput.value ?? "").trim())) {
+    app.ui.dialog.show("Steps must be an integer value.");
     return;
   }
 
+  const widthSanitized = sanitizeDimension(parsedResolution.width);
+  const heightSanitized = sanitizeDimension(parsedResolution.height);
+  const stepsSanitized = sanitizeSteps(steps);
+  const notices = [];
+
+  if (widthSanitized.corrected || heightSanitized.corrected) {
+    notices.push(
+      `Resolution auto-corrected to ${widthSanitized.value}x${heightSanitized.value} (multiple of ${DIM_MULTIPLE}).`,
+    );
+  }
+  if (stepsSanitized.corrected) {
+    notices.push(`Steps clamped to ${stepsSanitized.value} (${STEPS_MIN}-${STEPS_MAX}).`);
+  }
+
   if (state.editingId) {
+    const uniqueName = makeUniqueName(name, state.profiles, state.editingId);
     state.profiles = state.profiles.map((profile) => {
       if (profile.id !== state.editingId) {
         return profile;
@@ -776,21 +874,22 @@ function saveForm(node) {
 
       return {
         ...profile,
-        name,
-        width: parsedResolution.width,
-        height: parsedResolution.height,
-        steps,
+        name: uniqueName,
+        width: widthSanitized.value,
+        height: heightSanitized.value,
+        steps: stepsSanitized.value,
       };
     });
 
     state.selectedId = state.editingId;
   } else {
+    const uniqueName = makeUniqueName(name, state.profiles);
     const created = {
       id: createId(),
-      name,
-      width: parsedResolution.width,
-      height: parsedResolution.height,
-      steps,
+      name: uniqueName,
+      width: widthSanitized.value,
+      height: heightSanitized.value,
+      steps: stepsSanitized.value,
     };
 
     state.profiles = [...state.profiles, created];
@@ -798,6 +897,9 @@ function saveForm(node) {
   }
 
   persistState(node);
+  if (notices.length > 0) {
+    notify(notices.join(" "), "warn");
+  }
   closeForm(node);
   renderProfiles(node);
 }

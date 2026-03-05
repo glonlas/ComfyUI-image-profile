@@ -10,6 +10,50 @@ const STATE_WIDGET_NAMES = [
   "selected_steps",
 ];
 const STYLE_TAG_ID = "comfyui-image-profile-style";
+const CUSTOM_RESOLUTION_VALUE = "__custom__";
+
+const RESOLUTION_PRESETS = [
+  "1024x1024 ( 1:1 )",
+  "1152x896 ( 9:7 )",
+  "896x1152 ( 7:9 )",
+  "1152x864 ( 4:3 )",
+  "864x1152 ( 3:4 )",
+  "1248x832 ( 3:2 )",
+  "832x1248 ( 2:3 )",
+  "1280x720 ( 16:9 )",
+  "720x1280 ( 9:16 )",
+  "1344x576 ( 21:9 )",
+  "576x1344 ( 9:21 )",
+  "1280x1280 ( 1:1 )",
+  "1440x1120 ( 9:7 )",
+  "1120x1440 ( 7:9 )",
+  "1472x1104 ( 4:3 )",
+  "1104x1472 ( 3:4 )",
+  "1536x1024 ( 3:2 )",
+  "1024x1536 ( 2:3 )",
+  "1536x864 ( 16:9 )",
+  "864x1536 ( 9:16 )",
+  "1680x720 ( 21:9 )",
+  "720x1680 ( 9:21 )",
+  "1536x1536 ( 1:1 )",
+  "1728x1344 ( 9:7 )",
+  "1344x1728 ( 7:9 )",
+  "1728x1296 ( 4:3 )",
+  "1296x1728 ( 3:4 )",
+  "1872x1248 ( 3:2 )",
+  "1248x1872 ( 2:3 )",
+  "2048x1152 ( 16:9 )",
+  "1152x2048 ( 9:16 )",
+  "2016x864 ( 21:9 )",
+  "864x2016 ( 9:21 )",
+];
+
+const DEFAULT_PROFILES = [
+  { id: "default-landscape-low", name: "Landscape Low resolution", width: 404, height: 204, steps: 5 },
+  { id: "default-portrait-low", name: "Portrait Low resolution", width: 204, height: 404, steps: 5 },
+  { id: "default-landscape-high", name: "Landscape High resolution", width: 1152, height: 864, steps: 8 },
+  { id: "default-portrait-high", name: "Portrait High resolution", width: 864, height: 1152, steps: 8 },
+];
 
 function ensureStyles() {
   if (document.getElementById(STYLE_TAG_ID)) {
@@ -36,7 +80,7 @@ function ensureStyles() {
       color: var(--cip-text);
       box-sizing: border-box;
       width: 100%;
-      min-height: 230px;
+      min-height: 320px;
       font-family: "Trebuchet MS", "Segoe UI", sans-serif;
     }
 
@@ -77,13 +121,115 @@ function ensureStyles() {
       min-height: 150px;
     }
 
-    .cip-placeholder {
+    .cip-profile {
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 10px;
+      padding: 8px;
+      background: rgba(255, 255, 255, 0.04);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .cip-profile.is-selected {
+      border-color: rgba(59, 163, 255, 0.85);
+      background: linear-gradient(160deg, rgba(59, 163, 255, 0.2), rgba(105, 209, 255, 0.12));
+      box-shadow: inset 0 0 0 1px rgba(59, 163, 255, 0.25);
+    }
+
+    .cip-profile-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: baseline;
+    }
+
+    .cip-profile-name {
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .cip-profile-meta {
+      font-size: 11px;
+      color: var(--cip-muted);
+    }
+
+    .cip-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    .cip-btn {
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.2);
+      color: var(--cip-text);
+      font-size: 11px;
+      line-height: 1;
+      padding: 5px 7px;
+      cursor: pointer;
+    }
+
+    .cip-btn:hover {
+      filter: brightness(1.12);
+    }
+
+    .cip-empty {
       color: var(--cip-muted);
       font-size: 12px;
       border: 1px dashed rgba(255, 255, 255, 0.2);
       border-radius: 10px;
       padding: 14px 10px;
       text-align: center;
+    }
+
+    .cip-form {
+      margin-top: 8px;
+      border: 1px solid rgba(105, 209, 255, 0.3);
+      border-radius: 10px;
+      background: rgba(10, 16, 24, 0.65);
+      padding: 10px;
+      display: none;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .cip-form.is-open {
+      display: flex;
+    }
+
+    .cip-label {
+      font-size: 11px;
+      color: var(--cip-muted);
+      margin-bottom: 2px;
+    }
+
+    .cip-input, .cip-select {
+      width: 100%;
+      border-radius: 7px;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      background: rgba(0, 0, 0, 0.25);
+      color: var(--cip-text);
+      font-size: 12px;
+      padding: 6px 8px;
+      box-sizing: border-box;
+    }
+
+    .cip-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .cip-col {
+      flex: 1;
+    }
+
+    .cip-form-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 7px;
+      margin-top: 4px;
     }
   `;
 
@@ -92,6 +238,16 @@ function ensureStyles() {
 
 function getWidget(node, name) {
   return node.widgets?.find((widget) => widget?.name === name);
+}
+
+function setWidgetValue(node, name, value) {
+  const widget = getWidget(node, name);
+  if (!widget) {
+    return;
+  }
+
+  widget.value = value;
+  widget.callback?.(value);
 }
 
 function hideStateWidgets(node) {
@@ -114,14 +270,471 @@ function fitNode(node) {
   }
 
   const nextWidth = Math.max(computed[0], 360);
-  const nextHeight = Math.max(computed[1], 300);
+  const nextHeight = Math.max(computed[1], 360);
   node.setSize?.([nextWidth, nextHeight]);
   node.setDirtyCanvas?.(true, true);
   node.graph?.setDirtyCanvas?.(true, true);
 }
 
-function mountManagerShell(node, nodeData) {
-  if (node.__imageProfileShellMounted) {
+function createId() {
+  if (globalThis.crypto?.randomUUID) {
+    return globalThis.crypto.randomUUID();
+  }
+  return `profile-${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
+}
+
+function parseResolution(text) {
+  const match = String(text ?? "").trim().match(/^(\d+)\s*x\s*(\d+)(?:\s|$)/i);
+  if (!match) {
+    return null;
+  }
+
+  return {
+    width: Number.parseInt(match[1], 10),
+    height: Number.parseInt(match[2], 10),
+  };
+}
+
+function toProfile(candidate) {
+  if (!candidate || typeof candidate !== "object") {
+    return null;
+  }
+
+  const name = String(candidate.name ?? "").trim();
+  const id = String(candidate.id ?? "").trim() || createId();
+  const width = Number.parseInt(candidate.width, 10);
+  const height = Number.parseInt(candidate.height, 10);
+  const steps = Number.parseInt(candidate.steps, 10);
+
+  if (!name || Number.isNaN(width) || Number.isNaN(height) || Number.isNaN(steps)) {
+    return null;
+  }
+
+  return {
+    id,
+    name,
+    width,
+    height,
+    steps,
+  };
+}
+
+function loadProfilesFromWidgets(node) {
+  const profilesWidget = getWidget(node, "profiles_json");
+  const raw = String(profilesWidget?.value ?? "[]").trim();
+
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    parsed = [];
+  }
+
+  if (!Array.isArray(parsed) || parsed.length === 0) {
+    return DEFAULT_PROFILES.map((profile) => ({ ...profile }));
+  }
+
+  const sanitized = parsed.map(toProfile).filter((value) => value !== null);
+  if (sanitized.length === 0) {
+    return DEFAULT_PROFILES.map((profile) => ({ ...profile }));
+  }
+
+  return sanitized;
+}
+
+function initializeState(node) {
+  const profiles = loadProfilesFromWidgets(node);
+  const selectedProfileId = String(getWidget(node, "selected_profile_id")?.value ?? "").trim();
+
+  let selectedId = selectedProfileId;
+  if (!profiles.some((profile) => profile.id === selectedId)) {
+    selectedId = profiles[0]?.id ?? "";
+  }
+
+  return {
+    profiles,
+    selectedId,
+    editingId: null,
+  };
+}
+
+function chooseActiveProfile(state) {
+  return state.profiles.find((profile) => profile.id === state.selectedId) ?? state.profiles[0] ?? null;
+}
+
+function profileToResolution(profile) {
+  return `${profile.width}x${profile.height}`;
+}
+
+function persistState(node) {
+  const state = node.__imageProfileState;
+  if (!state) {
+    return;
+  }
+
+  setWidgetValue(node, "profiles_json", JSON.stringify(state.profiles));
+
+  const active = chooseActiveProfile(state);
+  if (active) {
+    state.selectedId = active.id;
+    setWidgetValue(node, "selected_profile_id", active.id);
+    setWidgetValue(node, "selected_width", active.width);
+    setWidgetValue(node, "selected_height", active.height);
+    setWidgetValue(node, "selected_steps", active.steps);
+  } else {
+    setWidgetValue(node, "selected_profile_id", "");
+    setWidgetValue(node, "selected_width", 1152);
+    setWidgetValue(node, "selected_height", 864);
+    setWidgetValue(node, "selected_steps", 8);
+  }
+
+  node.setDirtyCanvas?.(true, true);
+  node.graph?.setDirtyCanvas?.(true, true);
+}
+
+function createField(labelText, inputElement) {
+  const wrapper = document.createElement("div");
+  const label = document.createElement("div");
+  label.className = "cip-label";
+  label.textContent = labelText;
+  wrapper.append(label, inputElement);
+  return wrapper;
+}
+
+function buildFormUI(root) {
+  const form = document.createElement("div");
+  form.className = "cip-form";
+
+  const nameInput = document.createElement("input");
+  nameInput.className = "cip-input";
+  nameInput.type = "text";
+  nameInput.placeholder = "Portrait Low resolution";
+
+  const presetSelect = document.createElement("select");
+  presetSelect.className = "cip-select";
+
+  const customOption = document.createElement("option");
+  customOption.value = CUSTOM_RESOLUTION_VALUE;
+  customOption.textContent = "Custom (enter WxH)";
+  presetSelect.appendChild(customOption);
+
+  for (const preset of RESOLUTION_PRESETS) {
+    const option = document.createElement("option");
+    option.value = preset;
+    option.textContent = preset;
+    presetSelect.appendChild(option);
+  }
+
+  const customResolutionInput = document.createElement("input");
+  customResolutionInput.className = "cip-input";
+  customResolutionInput.type = "text";
+  customResolutionInput.placeholder = "1152x864";
+
+  const stepsInput = document.createElement("input");
+  stepsInput.className = "cip-input";
+  stepsInput.type = "number";
+  stepsInput.step = "1";
+  stepsInput.min = "1";
+  stepsInput.max = "150";
+  stepsInput.value = "8";
+
+  const row = document.createElement("div");
+  row.className = "cip-row";
+
+  const left = document.createElement("div");
+  left.className = "cip-col";
+  left.append(createField("Preset Resolution", presetSelect));
+
+  const right = document.createElement("div");
+  right.className = "cip-col";
+  right.append(createField("Steps", stepsInput));
+
+  row.append(left, right);
+
+  form.append(
+    createField("Profile Name", nameInput),
+    row,
+    createField("Custom Resolution (WxH)", customResolutionInput),
+  );
+
+  const actions = document.createElement("div");
+  actions.className = "cip-form-actions";
+
+  const cancelButton = document.createElement("button");
+  cancelButton.className = "cip-btn";
+  cancelButton.type = "button";
+  cancelButton.textContent = "Cancel";
+
+  const saveButton = document.createElement("button");
+  saveButton.className = "cip-btn";
+  saveButton.type = "button";
+  saveButton.textContent = "Save";
+
+  actions.append(cancelButton, saveButton);
+  form.appendChild(actions);
+
+  root.appendChild(form);
+
+  return {
+    form,
+    nameInput,
+    presetSelect,
+    customResolutionInput,
+    stepsInput,
+    saveButton,
+    cancelButton,
+  };
+}
+
+function renderProfiles(node) {
+  const state = node.__imageProfileState;
+  const list = node.__imageProfileListEl;
+  if (!state || !list) {
+    return;
+  }
+
+  list.innerHTML = "";
+
+  if (state.profiles.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "cip-empty";
+    empty.textContent = "No profiles yet. Click Add Profile to create one.";
+    list.appendChild(empty);
+    fitNode(node);
+    return;
+  }
+
+  for (const profile of state.profiles) {
+    const isSelected = profile.id === state.selectedId;
+    const card = document.createElement("div");
+    card.className = `cip-profile${isSelected ? " is-selected" : ""}`;
+
+    const top = document.createElement("div");
+    top.className = "cip-profile-top";
+
+    const name = document.createElement("div");
+    name.className = "cip-profile-name";
+    name.textContent = profile.name;
+
+    const meta = document.createElement("div");
+    meta.className = "cip-profile-meta";
+    meta.textContent = `${profile.width}x${profile.height} • ${profile.steps} steps`;
+
+    top.append(name, meta);
+
+    const actions = document.createElement("div");
+    actions.className = "cip-actions";
+
+    const selectButton = document.createElement("button");
+    selectButton.className = "cip-btn";
+    selectButton.type = "button";
+    selectButton.textContent = "Select";
+
+    const editButton = document.createElement("button");
+    editButton.className = "cip-btn";
+    editButton.type = "button";
+    editButton.textContent = "Edit";
+
+    const deleteButton = document.createElement("button");
+    deleteButton.className = "cip-btn";
+    deleteButton.type = "button";
+    deleteButton.textContent = "Delete";
+
+    selectButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      state.selectedId = profile.id;
+      persistState(node);
+      renderProfiles(node);
+    });
+
+    editButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openForm(node, "edit", profile.id);
+    });
+
+    deleteButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      state.profiles = state.profiles.filter((candidate) => candidate.id !== profile.id);
+      if (state.selectedId === profile.id) {
+        state.selectedId = state.profiles[0]?.id ?? "";
+      }
+      persistState(node);
+      renderProfiles(node);
+    });
+
+    actions.append(selectButton, editButton, deleteButton);
+
+    card.addEventListener("click", () => {
+      state.selectedId = profile.id;
+      persistState(node);
+      renderProfiles(node);
+    });
+
+    card.append(top, actions);
+    list.appendChild(card);
+  }
+
+  fitNode(node);
+}
+
+function setFormOpen(node, isOpen) {
+  const form = node.__imageProfileForm?.form;
+  if (!form) {
+    return;
+  }
+
+  if (isOpen) {
+    form.classList.add("is-open");
+  } else {
+    form.classList.remove("is-open");
+  }
+
+  fitNode(node);
+}
+
+function resolvePresetValue(profile) {
+  const direct = `${profile.width}x${profile.height}`;
+  const matchingPreset = RESOLUTION_PRESETS.find((preset) => {
+    const parsed = parseResolution(preset);
+    return parsed && parsed.width === profile.width && parsed.height === profile.height;
+  });
+
+  if (matchingPreset) {
+    return {
+      preset: matchingPreset,
+      custom: direct,
+    };
+  }
+
+  return {
+    preset: CUSTOM_RESOLUTION_VALUE,
+    custom: direct,
+  };
+}
+
+function openForm(node, mode, profileId = null) {
+  const state = node.__imageProfileState;
+  const formState = node.__imageProfileForm;
+  if (!state || !formState) {
+    return;
+  }
+
+  const profile = mode === "edit"
+    ? state.profiles.find((candidate) => candidate.id === profileId) ?? null
+    : null;
+
+  if (profile) {
+    const resolved = resolvePresetValue(profile);
+    formState.nameInput.value = profile.name;
+    formState.presetSelect.value = resolved.preset;
+    formState.customResolutionInput.value = resolved.custom;
+    formState.stepsInput.value = String(profile.steps);
+    state.editingId = profile.id;
+  } else {
+    formState.nameInput.value = "";
+    formState.presetSelect.value = RESOLUTION_PRESETS[0] ?? CUSTOM_RESOLUTION_VALUE;
+    formState.customResolutionInput.value = "";
+    formState.stepsInput.value = "8";
+    state.editingId = null;
+  }
+
+  setFormOpen(node, true);
+}
+
+function closeForm(node) {
+  const state = node.__imageProfileState;
+  if (state) {
+    state.editingId = null;
+  }
+  setFormOpen(node, false);
+}
+
+function saveForm(node) {
+  const state = node.__imageProfileState;
+  const formState = node.__imageProfileForm;
+  if (!state || !formState) {
+    return;
+  }
+
+  const name = String(formState.nameInput.value ?? "").trim();
+  const preset = formState.presetSelect.value;
+  const custom = String(formState.customResolutionInput.value ?? "").trim();
+  const resolutionText = preset === CUSTOM_RESOLUTION_VALUE ? custom : preset;
+  const parsedResolution = parseResolution(resolutionText);
+  const steps = Number.parseInt(formState.stepsInput.value, 10);
+
+  if (!name) {
+    app.ui.dialog.show("Profile name is required.");
+    return;
+  }
+
+  if (!parsedResolution) {
+    app.ui.dialog.show("Resolution must follow WxH format, for example 1152x864.");
+    return;
+  }
+
+  if (Number.isNaN(steps)) {
+    app.ui.dialog.show("Steps must be an integer.");
+    return;
+  }
+
+  if (state.editingId) {
+    state.profiles = state.profiles.map((profile) => {
+      if (profile.id !== state.editingId) {
+        return profile;
+      }
+
+      return {
+        ...profile,
+        name,
+        width: parsedResolution.width,
+        height: parsedResolution.height,
+        steps,
+      };
+    });
+
+    state.selectedId = state.editingId;
+  } else {
+    const created = {
+      id: createId(),
+      name,
+      width: parsedResolution.width,
+      height: parsedResolution.height,
+      steps,
+    };
+
+    state.profiles = [...state.profiles, created];
+    state.selectedId = created.id;
+  }
+
+  persistState(node);
+  closeForm(node);
+  renderProfiles(node);
+}
+
+function bindFormEvents(node) {
+  const formState = node.__imageProfileForm;
+  if (!formState) {
+    return;
+  }
+
+  formState.presetSelect.addEventListener("change", () => {
+    if (formState.presetSelect.value !== CUSTOM_RESOLUTION_VALUE) {
+      formState.customResolutionInput.value = "";
+    }
+  });
+
+  formState.cancelButton.addEventListener("click", () => {
+    closeForm(node);
+  });
+
+  formState.saveButton.addEventListener("click", () => {
+    saveForm(node);
+  });
+}
+
+function mountManager(node) {
+  if (node.__imageProfileManagerMounted) {
     return;
   }
 
@@ -142,20 +755,22 @@ function mountManagerShell(node, nodeData) {
   addButton.type = "button";
   addButton.textContent = "+ Add Profile";
 
+  header.append(title, addButton);
+
   const list = document.createElement("div");
   list.className = "cip-list";
 
-  const placeholder = document.createElement("div");
-  placeholder.className = "cip-placeholder";
-  placeholder.textContent = "Profile manager is initialized. CRUD actions are added in later commits.";
+  root.append(header, list);
+
+  node.__imageProfileState = initializeState(node);
+  node.__imageProfileListEl = list;
+  node.__imageProfileForm = buildFormUI(root);
+
+  bindFormEvents(node);
 
   addButton.addEventListener("click", () => {
-    console.info("[ComfyUI-Image-profile] Add profile clicked (shell phase)");
+    openForm(node, "create");
   });
-
-  header.append(title, addButton);
-  list.appendChild(placeholder);
-  root.append(header, list);
 
   node.addDOMWidget("image_profile_manager", "ImageProfileManager", root, {
     hideOnZoom: false,
@@ -164,8 +779,10 @@ function mountManagerShell(node, nodeData) {
     setValue: () => {},
   });
 
-  node.__imageProfileShellMounted = true;
-  node.__imageProfileListEl = list;
+  persistState(node);
+  renderProfiles(node);
+
+  node.__imageProfileManagerMounted = true;
   fitNode(node);
 
   setTimeout(() => fitNode(node), 0);
@@ -185,7 +802,7 @@ app.registerExtension({
     nodeType.prototype.onNodeCreated = function onNodeCreatedImageProfile() {
       onNodeCreated?.apply(this, arguments);
       hideStateWidgets(this);
-      mountManagerShell(this, nodeData);
+      mountManager(this);
     };
   },
 });

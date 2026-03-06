@@ -127,10 +127,10 @@ function ensureStyles() {
       flex-direction: column;
       gap: 8px;
       min-height: 150px;
-      max-height: 260px;
-      overflow-y: auto;
+      overflow-y: visible;
       overflow-x: hidden;
       padding-right: 2px;
+      padding-bottom: 4px;
       box-sizing: border-box;
     }
 
@@ -143,6 +143,7 @@ function ensureStyles() {
       display: flex;
       flex-direction: column;
       gap: 7px;
+      flex: 0 0 auto;
       box-sizing: border-box;
       width: 100%;
       overflow: hidden;
@@ -533,6 +534,16 @@ function initializeState(node) {
     selectedId,
     editingId: null,
   };
+}
+
+function syncStateFromWidgets(node) {
+  if (!node.__imageProfileManagerMounted) {
+    return;
+  }
+
+  node.__imageProfileState = initializeState(node);
+  closeForm(node);
+  renderProfiles(node);
 }
 
 function chooseActiveProfile(state) {
@@ -978,6 +989,7 @@ function bindFormEvents(node) {
 
 function mountManager(node) {
   if (node.__imageProfileManagerMounted) {
+    syncStateFromWidgets(node);
     return;
   }
 
@@ -1046,6 +1058,15 @@ app.registerExtension({
       onNodeCreated?.apply(this, arguments);
       hideStateWidgets(this);
       mountManager(this);
+      setTimeout(() => syncStateFromWidgets(this), 0);
+    };
+
+    const onConfigure = nodeType.prototype.onConfigure;
+    nodeType.prototype.onConfigure = function onConfigureImageProfile() {
+      const result = onConfigure?.apply(this, arguments);
+      hideStateWidgets(this);
+      syncStateFromWidgets(this);
+      return result;
     };
   },
 });

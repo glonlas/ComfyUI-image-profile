@@ -432,6 +432,28 @@ function clamp(value, minimum, maximum) {
   return Math.max(minimum, Math.min(maximum, value));
 }
 
+/**
+ * Return a new array with the element at sourceIndex moved to targetIndex's
+ * position (i.e. the moved element ends up where targetIndex pointed before
+ * the removal).
+ *
+ * When the source lies before the target, removing the source shifts every
+ * subsequent element left by one, so the effective insertion index is
+ * targetIndex - 1 (not targetIndex).
+ *
+ * @param {Array} profiles
+ * @param {number} sourceIndex
+ * @param {number} targetIndex
+ * @returns {Array}
+ */
+function reorderProfiles(profiles, sourceIndex, targetIndex) {
+  const reordered = [...profiles];
+  const [moved] = reordered.splice(sourceIndex, 1);
+  const insertIndex = sourceIndex < targetIndex ? targetIndex - 1 : targetIndex;
+  reordered.splice(insertIndex, 0, moved);
+  return reordered;
+}
+
 function sanitizeDimension(value) {
   let integer = Number.parseInt(value, 10);
   if (Number.isNaN(integer)) {
@@ -796,10 +818,7 @@ function renderProfiles(node) {
         return;
       }
 
-      const reordered = [...state.profiles];
-      const [moved] = reordered.splice(sourceIndex, 1);
-      reordered.splice(targetIndex, 0, moved);
-      state.profiles = reordered;
+      state.profiles = reorderProfiles(state.profiles, sourceIndex, targetIndex);
 
       persistState(node);
       renderProfiles(node);
@@ -1073,4 +1092,4 @@ app.registerExtension({
 
 // Named exports for unit-testing pure helpers.
 // ComfyUI ignores extra named exports — it only executes the registerExtension side-effect above.
-export { clamp, sanitizeDimension, sanitizeSteps, parseResolution };
+export { clamp, sanitizeDimension, sanitizeSteps, parseResolution, reorderProfiles };

@@ -46,7 +46,7 @@ registerHooks({
 // "../../scripts/app.js" import to the in-repo stub so registerExtension()
 // is a no-op instead of throwing.
 // ---------------------------------------------------------------------------
-let clamp, sanitizeDimension, sanitizeSteps, parseResolution;
+let clamp, sanitizeDimension, sanitizeSteps, parseResolution, reorderProfiles;
 
 before(async () => {
   const mod = await import("../image_profile.js");
@@ -54,6 +54,7 @@ before(async () => {
   sanitizeDimension = mod.sanitizeDimension;
   sanitizeSteps = mod.sanitizeSteps;
   parseResolution = mod.parseResolution;
+  reorderProfiles = mod.reorderProfiles;
 });
 
 // ===========================================================================
@@ -461,5 +462,91 @@ describe("parseResolution", () => {
   it("does not match negative dimensions (regex requires \\d+)", () => {
     // -1x-1 won't match because \d+ doesn't include -
     assert.equal(parseResolution("-1x-1"), null);
+  });
+});
+
+// ===========================================================================
+// reorderProfiles
+// ===========================================================================
+// Regression test for the drag-and-drop off-by-one bug:
+// When sourceIndex < targetIndex, removing the source shifts every subsequent
+// element left by one. The insertion index must be targetIndex - 1, not
+// targetIndex, otherwise the moved item lands AFTER the drop target instead
+// of AT it.
+describe("reorderProfiles", () => {
+  // Convenience: build a profile array from single-letter ids.
+  const makeProfiles = (...ids) => ids.map((id) => ({ id, name: id }));
+  const ids = (profiles) => profiles.map((p) => p.id);
+
+  // ---- forward drag (source before target) — the bug case ----
+
+  it("forward drag: [A,B,C,D] drag A(0) onto D(3) → [B,C,D,A] is WRONG; correct is [B,C,A,D]", () => {
+    // This test documents the fix: the moved item should land at D's original
+    // position (index 3), not after it.
+    const profiles = makeProfiles("A", "B", "C", "D");
+    const result = reorderProfiles(profiles, 0, 3);
+    assert.deepEqual(ids(result), ["B", "C", "A", "D"]);
+  });
+
+  it("forward drag: [A,B,C,D] drag A(0) onto C(2) → [B,A,C,D]", () => {
+    const profiles = makeProfiles("A", "B", "C", "D");
+    const result = reorderProfiles(profiles, 0, 2);
+    assert.deepEqual(ids(result), ["B", "A", "C", "D"]);
+  });
+
+  it("forward drag: [A,B,C,D] drag B(1) onto D(3) → [A,C,B,D]", () => {
+    const profiles = makeProfiles("A", "B", "C", "D");
+    const result = reorderProfiles(profiles, 1, 3);
+    assert.deepEqual(ids(result), ["A", "C", "B", "D"]);
+  });
+
+  it("forward drag: [A,B,C,D] drag A(0) onto B(1) → [A,B,C,D] (adjacent, no change)", () => {
+    // Dropping on the immediately-next element inserts in the same position.
+    const profiles = makeProfiles("A", "B", "C", "D");
+    const result = reorderProfiles(profiles, 0, 1);
+    assert.deepEqual(ids(result), ["A", "B", "C", "D"]);
+  });
+
+  // ---- backward drag (source after target) — already worked before the fix ----
+
+  it("backward drag: [A,B,C,D] drag D(3) onto A(0) → [D,A,B,C]", () => {
+    const profiles = makeProfiles("A", "B", "C", "D");
+    const result = reorderProfiles(profiles, 3, 0);
+    assert.deepEqual(ids(result), ["D", "A", "B", "C"]);
+  });
+
+  it("backward drag: [A,B,C,D] drag C(2) onto A(0) → [C,A,B,D]", () => {
+    const profiles = makeProfiles("A", "B", "C", "D");
+    const result = reorderProfiles(profiles, 2, 0);
+    assert.deepEqual(ids(result), ["C", "A", "B", "D"]);
+  });
+
+  it("backward drag: [A,B,C,D] drag D(3) onto B(1) → [A,D,B,C]", () => {
+    const profiles = makeProfiles("A", "B", "C", "D");
+    const result = reorderProfiles(profiles, 3, 1);
+    assert.deepEqual(ids(result), ["A", "D", "B", "C"]);
+  });
+
+  // ---- input array is not mutated ----
+
+  it("does not mutate the original array", () => {
+    const profiles = makeProfiles("A", "B", "C");
+    const original = [...profiles];
+    reorderProfiles(profiles, 0, 2);
+    assert.deepEqual(profiles, original);
+  });
+
+  // ---- two-element edge case ----
+
+  it("[A,B] drag A(0) onto B(1) → [A,B] (adjacent forward, no change)", () => {
+    const profiles = makeProfiles("A", "B");
+    const result = reorderProfiles(profiles, 0, 1);
+    assert.deepEqual(ids(result), ["A", "B"]);
+  });
+
+  it("[A,B] drag B(1) onto A(0) → [B,A]", () => {
+    const profiles = makeProfiles("A", "B");
+    const result = reorderProfiles(profiles, 1, 0);
+    assert.deepEqual(ids(result), ["B", "A"]);
   });
 });

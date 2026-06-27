@@ -452,7 +452,7 @@ function sanitizeDimension(value) {
 function sanitizeSteps(value) {
   let integer = Number.parseInt(value, 10);
   if (Number.isNaN(integer)) {
-    integer = 8;
+    integer = STEPS_MIN;
   }
   const nextValue = clamp(integer, STEPS_MIN, STEPS_MAX);
 

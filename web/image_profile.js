@@ -1070,3 +1070,7 @@ app.registerExtension({
     };
   },
 });
+
+// Named exports for unit-testing pure helpers.
+// ComfyUI ignores extra named exports — it only executes the registerExtension side-effect above.
+export { clamp, sanitizeDimension, sanitizeSteps, parseResolution };

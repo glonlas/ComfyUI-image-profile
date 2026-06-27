@@ -137,7 +137,7 @@ class ComfyUIImageProfile:
         if valid_profiles:
             return valid_profiles
 
-        return [cls._sanitize_profile(profile) for profile in DEFAULT_PROFILES if cls._sanitize_profile(profile) is not None]
+        return [p for profile in DEFAULT_PROFILES if (p := cls._sanitize_profile(profile)) is not None]
 
     def _resolve_selected_profile(
         self,

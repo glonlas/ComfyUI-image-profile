@@ -1,0 +1,9 @@
+{
+  "name": "comfyui-image-profile-web",
+  "private": true,
+  "type": "module",
+  "description": "Dev-only package manifest for running the web/ unit tests with Node's built-in test runner.",
+  "scripts": {
+    "test": "node --test web/__tests__/*.test.mjs"
+  }
+}

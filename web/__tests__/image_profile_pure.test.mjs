@@ -2,30 +2,49 @@
  * Unit tests for pure helper functions exported from web/image_profile.js.
  *
  * Run with:
- *   node --experimental-test-module-mocks --test web/__tests__/image_profile_pure.test.mjs
+ *   npm test
+ * or directly:
+ *   node --test web/__tests__/*.test.mjs
  *
- * How the ComfyUI app stub works
- * --------------------------------
+ * How the ComfyUI app import is stubbed
+ * -------------------------------------
  * image_profile.js (in web/) does:
  *   import { app } from "../../scripts/app.js";
  *   app.registerExtension(...);   <-- top-level side effect
  *
- * From web/, "../../scripts/app.js" resolves to
- *   <project>/../worktrees/scripts/app.js  (outside the project tree).
- * We create a minimal stub at that resolved path (see scripts/app.js at the
- * worktree parent) so the import succeeds without a real ComfyUI installation.
- * The stub simply exports { app: { registerExtension: () => {} } }.
+ * In a real ComfyUI install that specifier resolves (over HTTP, in the
+ * browser) to ComfyUI's own frontend bundle. There is no such file on disk
+ * here, so importing the module under Node would throw ERR_MODULE_NOT_FOUND.
+ *
+ * We install a synchronous in-thread resolve hook (module.registerHooks,
+ * stable in Node >=24) that redirects any ".../scripts/app.js" specifier to a
+ * tiny in-repo stub (./app-stub.mjs). This keeps the test fully self-contained
+ * and reproducible on a clean clone — no files outside the repo, no
+ * experimental flags.
  *
  * No production logic is modified beyond appending named exports at the very
  * bottom of image_profile.js — ComfyUI ignores extra named exports.
  */
 
+import { registerHooks } from "node:module";
 import { describe, it, before } from "node:test";
 import assert from "node:assert/strict";
 
+const APP_STUB_URL = new URL("./app-stub.mjs", import.meta.url).href;
+
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    if (specifier.endsWith("scripts/app.js")) {
+      return { url: APP_STUB_URL, shortCircuit: true };
+    }
+    return nextResolve(specifier, context);
+  },
+});
+
 // ---------------------------------------------------------------------------
-// Import the module under test.  The scripts/app.js stub at the worktree-
-// parent level keeps registerExtension() from throwing.
+// Import the module under test. The resolve hook above redirects its
+// "../../scripts/app.js" import to the in-repo stub so registerExtension()
+// is a no-op instead of throwing.
 // ---------------------------------------------------------------------------
 let clamp, sanitizeDimension, sanitizeSteps, parseResolution;
 
